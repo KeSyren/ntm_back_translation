@@ -4,6 +4,7 @@ import os
 import numpy as np
 import math
 import tensorflow as tf
+import pickle
 
 def load_program_lookup_table(path):
     input_file = os.path.join(path)
@@ -268,15 +269,17 @@ with train_graph.as_default():
         cost = tf.contrib.seq2seq.sequence_loss(
             training_logits,
             targets,
-            masks)
-
+            masks, name='cost1')
+        tf.add_to_collection("cost1", cost)
         # Optimizer
         optimizer = tf.train.AdamOptimizer(lr)
 
         # Gradient Clipping
         gradients = optimizer.compute_gradients(cost)
         capped_gradients = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gradients if grad is not None]
-        train_op = optimizer.apply_gradients(capped_gradients)
+        train_op = optimizer.apply_gradients(capped_gradients, name='optimizer1')
+        tf.add_to_collection("optimizer1", train_op)
+
 
 
 def pad_sentence_batch(sentence_batch, pad_int):
@@ -331,20 +334,25 @@ def get_batches(sources, targets, batch_size, source_pad_int, target_pad_int):
 
 # Split data to training and validation sets
 
-def back_translation(source_int_text, target_int_text):
+save_path = '/Users/qingwang/PycharmProjects/ntm_back_translation/checkpoints_back_translation/dev'
+
+# save parameters
+def save_params(params):
+    with open('/Users/qingwang/PycharmProjects/ntm_back_translation/checkpoints_back_translation/params.p', 'wb') as out_file:
+        pickle.dump(params, out_file)
+
+def load_params():
+    with open('/Users/qingwang/PycharmProjects/ntm_back_translation/checkpoints_back_translation/params.p', mode='rb') as in_file:
+        return pickle.load(in_file)
+
+
+def back_translation_init(source_int_text, target_int_text):
     train_source = source_int_text
     train_target = target_int_text
-    # valid_source = source_int_text[:batch_size]
-    # valid_target = target_int_text[:batch_size]
-    # (valid_sources_batch, valid_targets_batch, valid_sources_lengths, valid_targets_lengths) = next(
-    #     get_batches(valid_source,
-    #                 valid_target,
-    #                 batch_size,
-    #                 source_vocab_to_int['<PAD>'],
-    #                 target_vocab_to_int['<PAD>']))
+    loss = 0
+
     with tf.Session(graph=train_graph) as sess:
         sess.run(tf.global_variables_initializer())
-        loss = 0
         for epoch_i in range(epochs):
             for batch_i, (source_batch, target_batch, sources_lengths, targets_lengths) in enumerate(
                     get_batches(train_source, train_target, batch_size,
@@ -361,27 +369,50 @@ def back_translation(source_int_text, target_int_text):
                 print('Epoch {:>3} Batch {:>4}/{} - Loss: {}'
                       .format(epoch_i, batch_i, len(source_int_text) // batch_size, loss))
 
+        saver = tf.train.Saver()
+        saver.save(sess, save_path)
+        save_params(save_path)
+        return loss * 1.0/targets_lengths[0]
 
 
-        return loss * 1.0 / targets_lengths[0]
+def back_translation_reload(source_int_text, target_int_text):
+    train_source = source_int_text
+    train_target = target_int_text
+    loss = 0
+    # reload the parameters.
 
-                # if batch_i % display_step == 0 and batch_i > 0:
-                #     batch_train_logits = sess.run(
-                #         inference_logits,
-                #         {input_data: source_batch,
-                #          target_sequence_length: targets_lengths,
-                #          keep_prob: 1.0
-                #
-                #     batch_valid_logits = sess.run(
-                #         inference_logits,
-                #         {input_data: valid_sources_batch,
-                #          target_sequence_length: valid_targets_lengths,
-                #          keep_prob: 1.0})
+    loaded_graph = tf.Graph()
+    with tf.Session(graph=loaded_graph) as sess_new:
+        load_path = load_params()
+        print(load_path + '.meta')
+        loader = tf.train.import_meta_graph(load_path + '.meta')
+        loader.restore(sess_new, load_path)
 
-                # train_acc = get_accuracy(target_batch, batch_train_logits)
-                # valid_acc = get_accuracy(valid_targets_batch, batch_valid_logits)
-                #
-                #
-                # print('Epoch {:>3} Batch {:>4}/{} - Train Accuracy: {:>6.4f}, Validation Accuracy: {:>6.4f}, Loss: {:>6.4f}'
-                #       .format(epoch_i, batch_i, len(source_int_text) // batch_size, train_acc, valid_acc, loss))
+        input_data = loaded_graph.get_tensor_by_name('input:0')
+        targets = loaded_graph.get_tensor_by_name('targets:0')
+        target_sequence_length = loaded_graph.get_tensor_by_name('target_sequence_length:0')
+        lr = loaded_graph.get_tensor_by_name('lr_rate:0')
+        keep_prob = loaded_graph.get_tensor_by_name('keep_prob:0')
 
+        train_op = loaded_graph.get_collection('optimizer1')
+        cost = loaded_graph.get_tensor_by_name('optimization1/cost1/truediv:0')
+        for epoch_i in range(epochs):
+            for batch_i, (source_batch, target_batch, sources_lengths, targets_lengths) in enumerate(
+                    get_batches(train_source, train_target, batch_size,
+                                source_vocab_to_int['<PAD>'],
+                                target_vocab_to_int['<PAD>'])):
+                _, loss = sess_new.run(
+                    [train_op, cost],
+                    {input_data: source_batch,
+                     targets: target_batch,
+                     lr: learning_rate,
+                     target_sequence_length: targets_lengths,
+                     keep_prob: keep_probability})
+
+                print('reloaded Epoch {:>3} Batch {:>4}/{} - Loss: {}'
+                      .format(epoch_i, batch_i, len(source_int_text) // batch_size, loss))
+
+        saver = tf.train.Saver()
+        saver.save(sess_new, save_path)
+        save_params(save_path)
+        return loss * 1.0/targets_lengths[0]
