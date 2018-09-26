@@ -223,7 +223,10 @@ tf.app.flags.DEFINE_bool(
 tf.app.flags.DEFINE_bool(
   'show_log', True,
   'Whether to show logging info.')
-
+# back_translation_init_graph
+tf.app.flags.DEFINE_bool(
+  'flag_init_graph', True,
+  'is the first time to init the graph.')
 
 # Eval
 tf.app.flags.DEFINE_integer(
@@ -1166,6 +1169,7 @@ class Learner(multiprocessing.Process):
       if FLAGS.use_policy_samples_in_train:
         n_train_samples += FLAGS.n_policy_samples
 
+
       if train_samples:
         # use_trainer_prob
         if FLAGS.use_trainer_prob:
@@ -1186,11 +1190,19 @@ class Learner(multiprocessing.Process):
           target_int_text = [t.context[0] for t in trajs]
           print(len(source_int_text))
           print(len(target_int_text))
+          if FLAGS.flag_init_graph:
+            back_translation_loss = ntm.back_translation_init(source_int_text, target_int_text)
+            print back_translation_loss
+            back_translation_reward = 1.0 - back_translation_loss
+            print back_translation_reward
+          else:
+            back_translation_loss = ntm.back_translation_reload(source_int_text, target_int_text)
+            print back_translation_loss
+            back_translation_reward = 1.0 - back_translation_loss
+            print back_translation_reward
 
-          back_translation_loss = ntm.back_translation(source_int_text, target_int_text)
-          print back_translation_loss
-          back_translation_reward = 1.0 - back_translation_loss
-          print back_translation_reward
+          # from second time, we need to load the parameters.
+          FLAGS.flag_init_graph = False
           # =============== back translation loss ==================
 
           agent.train(
