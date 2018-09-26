@@ -334,15 +334,15 @@ def get_batches(sources, targets, batch_size, source_pad_int, target_pad_int):
 
 # Split data to training and validation sets
 
-save_path = '/Users/qingwang/PycharmProjects/ntm_back_translation/checkpoints_back_translation/dev'
+save_path = '../checkpoints_back_translation/dev'
 
 # save parameters
 def save_params(params):
-    with open('/Users/qingwang/PycharmProjects/ntm_back_translation/checkpoints_back_translation/params.p', 'wb') as out_file:
+    with open('../checkpoints_back_translation/params.p', 'wb') as out_file:
         pickle.dump(params, out_file)
 
 def load_params():
-    with open('/Users/qingwang/PycharmProjects/ntm_back_translation/checkpoints_back_translation/params.p', mode='rb') as in_file:
+    with open('../checkpoints_back_translation/params.p', mode='rb') as in_file:
         return pickle.load(in_file)
 
 
@@ -383,6 +383,7 @@ def back_translation_reload(source_int_text, target_int_text):
 
     loaded_graph = tf.Graph()
     with tf.Session(graph=loaded_graph) as sess_new:
+        sess_new.run(tf.global_variables_initializer())
         load_path = load_params()
         print(load_path + '.meta')
         loader = tf.train.import_meta_graph(load_path + '.meta')
