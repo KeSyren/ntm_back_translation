@@ -148,7 +148,6 @@ class PGAgent(object):
     trajs = [s.traj for s in samples]
     probs = [s.prob for s in samples]
     env_names = [t.env_name for t in trajs]
-    rewards = [t.rewards for t in trajs]
     logprobs = [math.log(prob + 1) + 1 for prob in probs]
 
     for i in range(len(trajs)):
