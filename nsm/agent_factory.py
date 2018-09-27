@@ -264,9 +264,9 @@ class PGAgent(object):
   
     returns = [compute_returns(t.rewards, self.discount_factor)[0] for t in trajs]
 
-    logprobs = [math.log(prob + 1) + 1 for prob in probs]
-    for i in range(len(returns)):
-      returns[i] += logprobs[i]
+    # logprobs = [math.log(prob + 1) + 1 for prob in probs]
+    # for i in range(len(returns)):
+    #   returns[i] += logprobs[i]
 
     avg_return, std_return, max_return, min_return, n_w = compute_weighted_stats(
       returns, probs)
@@ -838,9 +838,9 @@ class RandomAgent(object):
   
     returns = [compute_returns(t.rewards, self.discount_factor)[0] for t in trajs]
 
-    logprobs = [math.log(prob + 1) + 1 for prob in probs]
-    for i in range(len(returns)):
-      returns[i] += logprobs[i]
+    # logprobs = [math.log(prob + 1) + 1 for prob in probs]
+    # for i in range(len(returns)):
+    #   returns[i] += logprobs[i]
 
     avg_return, std_return, max_return, min_return = compute_weighted_stats(
       returns, probs)
