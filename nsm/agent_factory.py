@@ -148,12 +148,14 @@ class PGAgent(object):
     trajs = [s.traj for s in samples]
     probs = [s.prob for s in samples]
     env_names = [t.env_name for t in trajs]
+    rewards = [t.rewards for t in trajs]
+    logprobs = [math.log(prob + 1) + 1 for prob in probs]
+    for i in range(len(rewards)):
+      for j in range(len(rewards[i])):
+        rewards[i][j] += logprobs[i] + back_translation_reward
+
     returns = [compute_returns(t.rewards, self.discount_factor) for t in trajs]
 
-    logprobs = [math.log(prob + 1) + 1 for prob in probs]
-    for i in range(len(returns)):
-      for j in range(len(returns[i])):
-        returns[i][j] += logprobs[i] + back_translation_reward
 
     if use_baseline:
       baseline_dict = compute_baselines(returns, probs, env_names)
