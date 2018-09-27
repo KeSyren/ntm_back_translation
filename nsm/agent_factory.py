@@ -154,8 +154,13 @@ class PGAgent(object):
       for j in range(len(rewards[i])):
         rewards[i][j] += logprobs[i] + back_translation_reward
 
-    # returns = [compute_returns(t.rewards, self.discount_factor) for t in trajs]
-    returns = [compute_returns(rewards, self.discount_factor)]
+    for k in range(len(trajs)):
+      trajs[k].rewards = rewards[k]
+
+    # returns = []
+    # for i in range(len(rewards)):
+    #   returns.append(compute_returns(rewards[i], self.discount_factor))
+    returns = [compute_returns(t.rewards, self.discount_factor) for t in trajs]
 
     if use_baseline:
       baseline_dict = compute_baselines(returns, probs, env_names)
@@ -171,10 +176,6 @@ class PGAgent(object):
     # rewards = [t.rewards for t in trajs]
     context = [t.context for t in trajs]
 
-    logprobs = [math.log(prob + 1) + 1 for prob in probs]
-    for i in range(len(rewards)):
-      for j in range(len(rewards[i])):
-        rewards[i][j] += logprobs[i] + back_translation_reward
     weights = [list(np.array(ad) * p * scale) for ad, p in zip(advantages, probs)]
 
     if not use_importance_sampling and min_prob > 0.0:
