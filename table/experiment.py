@@ -1207,6 +1207,7 @@ class Learner(multiprocessing.Process):
 
           agent.train(
             train_samples,
+            back_translation_reward,
             parameters=dict(en_rnn_dropout=FLAGS.dropout,rnn_dropout=FLAGS.dropout),
             use_baseline=FLAGS.use_baseline,
             min_prob=FLAGS.min_prob,
