@@ -1172,51 +1172,53 @@ class Learner(multiprocessing.Process):
         n_train_samples += FLAGS.n_policy_samples
 
       if train_samples:
+        # use_trainer_prob
         if FLAGS.use_trainer_prob:
           train_samples = agent.update_replay_prob(
             train_samples, min_replay_weight=FLAGS.min_replay_weight)
+        # FLAGS.n_opt_step = 1
         for _ in xrange(FLAGS.n_opt_step):
+          for j in range(1, len(train_samples)/2+1):
+            # =============== back translation loss ===================
+            trajs = [s.traj for s in train_samples[2*(j-1):2*j]]
+            source_int_text = []
+            for traj in trajs:
+              program_int_text = []
+              for a, ob in zip(traj.actions, traj.obs):
+                ob = ob[0]
+                program_int_text.append(ob.valid_indices[a])
+              source_int_text.append(program_int_text)
 
-          # =============== back translation loss ===================
-          trajs = [s.traj for s in train_samples]
-          source_int_text = []
-          for traj in trajs:
-            program_int_text = []
-            for a, ob in zip(traj.actions, traj.obs):
-              ob = ob[0]
-              program_int_text.append(ob.valid_indices[a])
-            source_int_text.append(program_int_text)
+            target_int_text = [t.context[0] for t in trajs]
+            print(len(source_int_text))
+            print(len(target_int_text))
+            if FLAGS.flag_init_graph:
+              back_translation_loss = ntm.back_translation_init(source_int_text, target_int_text)
+              print back_translation_loss
+              back_translation_reward = 1.0 - back_translation_loss
+              print back_translation_reward
+            else:
+              back_translation_loss = ntm.back_translation_reload(source_int_text, target_int_text)
+              print back_translation_loss
+              back_translation_reward = 1.0 - back_translation_loss
+              print back_translation_reward
 
-          target_int_text = [t.context[0] for t in trajs]
-          print(len(source_int_text))
-          print(len(target_int_text))
-          if FLAGS.flag_init_graph:
-            back_translation_loss = ntm.back_translation_init(source_int_text, target_int_text)
-            print back_translation_loss
-            back_translation_reward = 1.0 - back_translation_loss
-            print back_translation_reward
-          else:
-            back_translation_loss = ntm.back_translation_reload(source_int_text, target_int_text)
-            print back_translation_loss
-            back_translation_reward = 1.0 - back_translation_loss
-            print back_translation_reward
+            # from second time, we need to load the parameters.
+            FLAGS.flag_init_graph = False
+            # =============== back translation loss ==================
 
-          # from second time, we need to load the parameters.
-          FLAGS.flag_init_graph = False
-          # =============== back translation loss ==================
-
-          agent.train(
-            train_samples,
-            back_translation_reward,
-            parameters=dict(en_rnn_dropout=FLAGS.dropout,rnn_dropout=FLAGS.dropout),
-            use_baseline=FLAGS.use_baseline,
-            min_prob=FLAGS.min_prob,
-            scale=n_train_samples,
-            behaviour_logprobs=behaviour_logprobs,
-            use_importance_sampling=FLAGS.use_importance_sampling,
-            ppo_epsilon=FLAGS.ppo_epsilon,
-            de_vocab=envs[0].de_vocab,
-            debug=FLAGS.debug)
+            agent.train(
+              train_samples[2*(j-1):2*j],
+              back_translation_reward,
+              parameters=dict(en_rnn_dropout=FLAGS.dropout, rnn_dropout=FLAGS.dropout),
+              use_baseline=FLAGS.use_baseline,
+              min_prob=FLAGS.min_prob,
+              scale=n_train_samples,
+              behaviour_logprobs=behaviour_logprobs,
+              use_importance_sampling=FLAGS.use_importance_sampling,
+              ppo_epsilon=FLAGS.ppo_epsilon,
+              de_vocab=envs[0].de_vocab,
+              debug=FLAGS.debug)
 
       avg_return, avg_len = agent.evaluate(
         eval_samples, writer=train_writer, true_n=eval_true_n,
