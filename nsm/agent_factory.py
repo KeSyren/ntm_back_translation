@@ -150,16 +150,11 @@ class PGAgent(object):
     env_names = [t.env_name for t in trajs]
     rewards = [t.rewards for t in trajs]
     logprobs = [math.log(prob + 1) + 1 for prob in probs]
-    for i in range(len(rewards)):
-      for j in range(len(rewards[i])):
-        rewards[i][j] += logprobs[i] + back_translation_reward
 
-    for k in range(len(trajs)):
-      trajs[k].rewards = rewards[k]
+    for i in range(len(trajs)):
+      for j in range(len(trajs[i].rewards)):
+        trajs[i].rewards[j] = logprobs[i] + back_translation_reward
 
-    # returns = []
-    # for i in range(len(rewards)):
-    #   returns.append(compute_returns(rewards[i], self.discount_factor))
     returns = [compute_returns(t.rewards, self.discount_factor) for t in trajs]
 
     if use_baseline:
