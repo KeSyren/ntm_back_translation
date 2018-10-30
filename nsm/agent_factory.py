@@ -150,10 +150,12 @@ class PGAgent(object):
     env_names = [t.env_name for t in trajs]
     logprobs = [math.log(prob + 1) + 1 for prob in probs]
 
+    # set weights for forward translation reward and back translation reward
+    lambda = 0.01
     for i in range(len(trajs)):
       for j in range(len(trajs[i].rewards)):
         if j == len(trajs[i].rewards)-1:
-          trajs[i].rewards[j] = logprobs[i] + back_translation_reward
+          trajs[i].rewards[j] = (1-lambda) * logprobs[i] + lambda * back_translation_reward
         else:
           continue
 
